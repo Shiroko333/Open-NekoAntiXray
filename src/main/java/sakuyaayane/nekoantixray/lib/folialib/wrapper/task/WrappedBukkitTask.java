@@ -1,0 +1,32 @@
+package sakuyaayane.nekoantixray.lib.folialib.wrapper.task;
+
+import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
+
+public class WrappedBukkitTask implements WrappedTask {
+   private final BukkitTask task;
+
+   public WrappedBukkitTask(BukkitTask var1) {
+      this.task = var1;
+   }
+
+   @Override
+   public void cancel() {
+      this.task.cancel();
+   }
+
+   @Override
+   public boolean isCancelled() {
+      return this.task.isCancelled();
+   }
+
+   @Override
+   public Plugin getOwningPlugin() {
+      return this.task.getOwner();
+   }
+
+   @Override
+   public boolean isAsync() {
+      return !this.task.isSync();
+   }
+}

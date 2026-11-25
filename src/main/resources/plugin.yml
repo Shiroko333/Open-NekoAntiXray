@@ -1,0 +1,87 @@
+name: NekoAntiXray
+version: 'AllPlatform-2.3.8'
+main: sakuyaayane.nekoantixray.NekoAntiXray
+api-version: '1.16'
+folia-supported: true
+author: SakuyaAyane Ghost
+load: STARTUP
+depend:
+  - packetevents
+softdepend:
+  - FastAsyncWorldEdit
+commands:
+  nax:
+    description: NekoAntiXray 主命令
+    usage: /<command> <子命令> [参数]
+    aliases: [nekoantixray]
+    permission: nekoantixray.admin
+  nekoantixrayupdate:
+    description: 更新NekoAntiXray插件到最新版本
+    usage: /<command>
+    permission: nekoantixray.update
+  seed:
+    description: Shows a random seed instead of the real world seed
+    usage: /<command>
+  fakeseedreload:
+    description: Reloads the FakeSeed plugin configuration
+    usage: /<command>
+    permission: fakeseed.reload
+
+permissions:
+  nekoantixray.admin:
+    description: 允许使用所有 NekoAntiXray 管理命令
+    default: op
+  nekoantixray.ban:
+    description: 允许使用 NekoAntiXray 的 ban 子命令
+    default: op
+  nekoantixray.showhwid:
+    description: 允许使用 NekoAntiXray 的 showhwid 子命令
+    default: op
+  nekoantixray.reload:
+    description: 允许使用 NekoAntiXray 的 reload 子命令
+    default: op
+  nekoantixray.resetviolation:
+    description: 允许重置玩家的违规记录
+    default: op
+  nekoantixray.update:
+    description: 允许更新 NekoAntiXray 插件
+    default: op
+  nekoantixray.replay:
+    description: 允许使用 NekoAntiXray 的 replay 子命令
+    default: op
+  nekoantixray.bypass:
+    description: 允许玩家绕过XRay检查
+    default: false
+  nekoantixray.probeguard.bypass:
+    description: 允许玩家绕过鬼手探测防护(默认关闭, OP 也需要显式授予)
+    default: false
+  nekoantixray.notify:
+    description: 允许接收统一通知系统(2.3.3)的检测/警告通知
+    default: op
+  fakeseed.reload:
+    description: Allows reloading the FakeSeed plugin configuration
+    default: op
+  fakeseed.viewreal:
+    description: Allows viewing the real world seed
+    default: op
+  nekoantixray.massexcavation:
+    description: 允许管理大规模挖掘检测功能
+    default: op
+  nekoantixray.alerts:
+    description: 允许接收XRay警告
+    default: op
+  nekoantixray.cleanup:
+    description: 允许手动清理回放盔甲架
+    default: op
+  nekoantixray.locate.bypass:
+    description: 允许使用 /locate 相关指令（跳过拦截）
+    default: op
+  nekoantixray.realseed:
+    description: 允许使用 /nax realseed 查看真实种子
+    default: op
+  nekoantixray.orestats:
+    description: 允许查看玩家挖矿统计
+    default: op
+  nekoantixray.oretrack:
+    description: 允许追踪玩家挖矿行为
+    default: op

@@ -1,0 +1,954 @@
+# NekoAntiXray 配置文件
+api-key: ""  # API密钥，不要泄露给任何人！
+#如果你不知道你在做什么，请不要更改这些数值参数！！！！ 否则可能会导致检测效果不佳或者误封玩家。 对此造成的后果，作者不负任何责任。造成插件工作效果不佳的问题，作者不提供任何技术支持。
+# https://www.nekoantixray.link/tutorial
+
+
+
+# 检测配置
+check:
+  # ========================================
+  #   智能挖矿行为分析 (Intelligent Mining Behavior Analysis)
+  #   这是基于行为模式的高级检测系统
+  # ========================================
+  mining-behavior-analyzer:
+    # === 基础设置 ===
+    active: false  # 总开关 (启用后建议关闭假矿石检测以避免冲突)
+
+    # === 世界与区域设置 ===
+    # 格式: 世界名: [是否启用, Y轴上限]
+    # 留空世界名使用 _default 配置
+    world-configs:
+      world: { enabled: true, y-limit: 32 }
+      world_nether: { enabled: true, y-limit: 128 }
+      world_the_end: { enabled: false, y-limit: -1 }
+      _default: { enabled: false, y-limit: -1 }
+
+    # === 目标矿石 ===
+    target-blocks: [ANCIENT_DEBRIS, EMERALD_ORE, DEEPSLATE_EMERALD_ORE, DIAMOND_ORE, DEEPSLATE_DIAMOND_ORE]
+
+    # ========================
+    # 第一阶段: 数据采集
+    # ========================
+    data-collection:
+      path-max-blocks: 500      # 单个路径最多记录多少方块
+      cleanup-after-minutes: 15 # VL清零后多久删除历史数据
+
+      # 矿脉聚类算法
+      vein-cluster: { distance: 5, small-size: 4, trigger-count: 3 }
+
+      # 爆炸事件
+      explosion-tracking:
+        enabled: false           # 是否追踪实体爆炸
+        retention-seconds: 600   # 爆炸暴露矿石的记录时长
+        suspicious-rate: 0.1     # 命中率超过此值视为可疑
+        penalty-multiplier: 2.0  # 可疑行为的VL倍增
+
+    # ========================
+    # 第二阶段: 行为特征分析
+    # ========================
+    pattern-analyzer:
+      # 路径特征阈值 (超过则触发检测)
+      turning-limit: 10         # 转向次数
+      branching-limit: 6        # 分支次数
+      y-shift-limit: 4          # Y轴改变次数
+      y-shift-min: 3            # Y变化多少才算一次改变
+
+    # ========================
+    # 第三阶段: 环境过滤器
+    # ========================
+    environment-filters:
+      # 总开关
+      apply-filters: true
+
+      # 洞穴过滤器 (在自然洞穴中降低检测强度)
+      cave:
+        air-count: 14           # 周围空气方块数达到此值判定为洞穴
+        cave-air-multiplier: 5  # CAVE_AIR权重
+        radius: 3               # 扫描半径
+        reduce-vl: true         # 是否降低VL
+
+        # 反作弊: 人工空气检测
+        fake-cave-detection:
+          enabled: true
+          min-blocks: 10        # 路径长度达到此值才开始检测
+          air-ratio: 0.3        # 空气占比阈值
+          vl-per-trigger: 1     # 每次触发增加的VL
+          max-triggers: 5       # 触发次数上限
+          reset-minutes: 20     # 数据重置时间
+
+      # 水域过滤器
+      water:
+        include-flowing: false  # 是否包含流动的水
+        water-count: 14
+        radius: 3
+        reduce-vl: true
+
+      # 岩浆过滤器
+      lava:
+        lava-count: 14
+        radius: 3
+        reduce-vl: true
+
+    # ========================
+    # 第四阶段: 违规处理
+    # ========================
+    violation-system:
+      # 自动衰减
+      auto-decay: { enabled: true, interval-minutes: 3, amount: 1 }
+      exponential-decay: { enabled: false, factor: 0.9 }
+
+
+
+  # 被动式未暴露方块统计检测
+  # 默认只警报，不会自动处罚；应先根据服务器正常玩家数据调整阈值。
+  unexposed-mining:
+    enabled: false
+    window-size: 200
+    minimum-samples: 100
+    minimum-ores: 8
+    minimum-host-blocks: 60
+    maximum-ore-ratio: 0.08
+
+  xray:
+    # 是否启用 X-Ray 检测
+    enable: true
+
+    same-chunk-detection: true  # 是否启用同区块挖掘豁免
+
+    # 连续挖矿检测
+    line-break:
+      length: 3  # 触发检测的连续挖矿长度
+
+    # 假矿石生成配置
+    spawn:
+      ore: 30  # 每次触发时生成的假矿石的尝试次数(尝试次数 而不是最终生成的数量)
+      time: 100  # 假矿石存在的时间（秒）
+      distance-limit:
+        ore: 10  # 假矿石之间的最小距离
+        player: 7  # 假矿石与玩家的最小距离
+      x-change:
+        min: -10
+        max: 15
+      z-change:
+        min: -10
+        max: 15
+      y-change:
+        min: -10  # Y轴最小变化范围
+        max: 8  # Y轴最大变化范围
+      amount:
+        min: 3
+        max: 7  # 每个位置生成的假矿石数量范围
+
+    # 随机假矿石: 根据当前世界维度+深度从下方矿石池随机选取假矿石类型
+    # (而不是复制玩家当前挖掘的矿石类型), 使诱饵矿分布更接近真实生成规律。
+    # 主世界按 Y<0 自动切换深板岩矿石; 黑名单矿石(blacklist.ores)不会出现在随机池中;
+    # 某维度列表留空时, 该维度回退为复制玩家挖掘的矿石类型(旧行为)。
+    random-ore:
+      enabled: true  # 总开关
+      # 主世界 Y >= 0 的矿石池
+      overworld-surface:
+        - COAL_ORE
+        - IRON_ORE
+        - COPPER_ORE
+        - GOLD_ORE
+        - LAPIS_ORE
+        - REDSTONE_ORE
+        - DIAMOND_ORE
+        - EMERALD_ORE
+      # 主世界 Y < 0 (深板岩层) 的矿石池
+      overworld-deep:
+        - DEEPSLATE_COAL_ORE
+        - DEEPSLATE_IRON_ORE
+        - DEEPSLATE_COPPER_ORE
+        - DEEPSLATE_GOLD_ORE
+        - DEEPSLATE_LAPIS_ORE
+        - DEEPSLATE_REDSTONE_ORE
+        - DEEPSLATE_DIAMOND_ORE
+        - DEEPSLATE_EMERALD_ORE
+      # 下界矿石池
+      nether:
+        - NETHER_QUARTZ_ORE
+        - NETHER_GOLD_ORE
+        - ANCIENT_DEBRIS
+      # 末地矿石池 (末地无自然矿石, 留空则复制玩家挖掘的矿石)
+      end: []
+
+    # 触发检测的挖矿次数阈值 (达到此次数后生成假矿石; 越小越容易触发)
+    mining-count-threshold: 2
+
+    # 违规值（VL）设置
+    vl:
+      add:
+        break-self: 1.0  # 玩家挖掘自己生成的假矿石时增加的违规值
+        break-other: 2.0  # 玩家挖掘其他玩家生成的假矿石时增加的违规值
+      continuous-increase:
+        enable: true  # 是否启用连续违规警告
+        count: 3  # 触发警告的连续违规次数 会额外增加一次违规值
+        interval: 60  # 连续违规的判定时间间隔（秒）
+
+    # Heavy模式(数据包混淆): 三态开关
+    #   false   - 关闭(默认, 完全不混淆, 所有玩家都看到真实方块)
+    #   true    - 全局: 所有玩家的区块都混淆(资源消耗高)
+    #   dynamic - 按玩家: 只有 VL 达到 heavy-mode-trigger-vl 的玩家进入混淆状态
+    #              (低 VL 玩家区块直发真实方块, 这是设计行为)
+    # 管理员手动控制(/nax resend):
+    #   /nax resend <玩家>        强制该玩家进入混淆状态, 不受 VL 阈值干扰;
+    #   /nax resend <玩家> cancel 取消该玩家混淆; 之后该玩家 VL 从取消时基线
+    #                             再涨满一个触发阈值时会自动恢复混淆(非永久豁免)。
+    # 需要打开Paper的反矿透引擎(paper.yml anti-xray.enabled: true, engine-mode: 1)才生效
+    heavy-mode: false
+
+    # dynamic 模式: 玩家VL达到此值后, 其收到的区块开始混淆
+    # VL 衰减/清零后自动恢复直发
+    heavy-mode-trigger-vl: 5.0
+    # dynamic 模式: 玩家首次触发混淆时, 是否强制重发其周围已加载区块,
+    # 消除 VL 达标前看到的真实矿石(暴露窗口)。重发会有短暂区块刷新。
+    heavy-mode-resend-on-trigger: true
+    # 触发重发的区块半径(格)
+    heavy-mode-resend-radius: 4
+    # /nax resend <玩家> cancel 可取消该玩家的区块混淆并重发(恢复真实方块显示)。
+    # 取消状态持续保持: 仅当该玩家 VL 再度触发(dynamic 模式, 从取消时的 VL 基线
+    # 再涨满 heavy-mode-trigger-vl)或管理员再次 /nax resend 时才恢复混淆。
+
+    # 在heavy-mode模式下是否混淆插件自身生成的假矿石（钓鱼矿石）
+    # true: 混淆假矿石（默认行为，假矿石会被反矿透系统处理）
+    # false: 保留假矿石的原始状态（不被反矿透系统混淆）
+    heavy-mode-obfuscate-fake-ores: false
+
+    # ==================== 鬼手探测防护(反 TrueSight / 真视) ====================
+    # 原理: Paper 反矿透收到任何挖掘动作包(包括"取消挖掘"ABORT_DESTROY_BLOCK)都会把
+    # 目标格周围 update-radius 内的真实方块以单格更新包发回, 而单格更新不参与区块混淆。
+    # 作弊客户端(如 TrueSight)于是对着身边方块狂发取消挖掘包, 用稀疏点阵覆盖全空间,
+    # 就能让服务端亲手交出真矿(不改世界、不破坏方块)。
+    # 本防护在收包阶段校验每个挖掘动作包是否合法, 不合法直接丢弃, 服务端便不会揭示真矿:
+    #   距离(眼睛到方块碰撞箱) / 准星命中 / ABORT-STOP 必须对应一次合法 START / 视线遮挡
+    # 误伤说明: 正常挖掘必然满足以上全部条件(区块数据缺失时会放行), 不会影响正常玩家。
+    probe-guard:
+      # ⚠ 该防护尚未完成实机验证(拦截判定可能与核心/客户端行为存在偏差),
+      # 默认关闭。要测试/启用请改为 true, 并用 /nax probeguard 查看拦截状态。
+      enabled: false
+      # 是否要求本插件的 heavy mode(数据包混淆)开启才生效。
+      # 默认 false: 探测揭示的是 Paper 反矿透的单格更新机制(与 heavy mode 无关),
+      # 只要服务端开着 Paper anti-xray(engine-mode 1)就应该拦截。
+      require-heavy-mode: false
+      # 只对"当前处于数据包混淆状态"的玩家执行视线遮挡射线检测(开销最大的那一项):
+      #   heavy-mode: true    → 所有玩家都做遮挡检测;
+      #   heavy-mode: dynamic → 只对 VL 达到 heavy-mode-trigger-vl 的玩家做遮挡检测;
+      # 距离/准星/ABORT 状态机等低成本校验始终对所有玩家生效(拦截与 VL 也照常记录),
+      # 因此不会出现"低 VL 玩家探测 → 不加 VL → 永不触发混淆"的自锁。
+      only-obfuscated-players: true
+      # 是否按玩家"实际手长"判定可达: 读取 block_interaction_range 属性
+      # (生存/极限 4.5 格, 创造 5.0 格; 属性被插件/附魔修改时自动跟随)
+      use-gamemode-reach: true
+      # 固定手长(仅在 use-gamemode-reach: false 时使用)
+      max-reach: 6.0
+      # 在手长基础上额外允许的容差(格)。原版服务端自身还有 +1.0 缓冲, 默认对齐为 1.0
+      reach-tolerance: 1.0
+      # 准星命中判定时方块碰撞箱的膨胀容差(格), 容忍移动包与挖掘包的时序抖动
+      crosshair-tolerance: 0.4
+      # 是否要求 START 必须落在准星射线上
+      check-crosshair: true
+      # 是否要求目标方块沿视线无遮挡(复用区块缓存做射线检测; 区块未加载时放行)
+      check-line-of-sight: true
+      # ABORT/STOP 允许匹配最近一次合法 START 的时间窗(毫秒)。
+      # 客户端转身移开准星后才发 ABORT, 此刻准星可能已不在目标上, 所以不能重复校验准星;
+      # 同时挖掘会话可能持续很久(深板岩/低效率镐可超过数秒), 因此这里必须给足时间,
+      # 否则正常挖掘的 STOP 会被误判成"无 START 的探测包"(方块回弹 + 加 VL)。
+      # 设为 0 表示不限制(目标只在下一次 START 或 ABORT/STOP 时更新)。
+      abort-grace-ms: 30000
+      # 误伤保护(重要): 窗口内累计多少个"可疑包"才真正开始拦截。
+      # 正常玩家(效率V高速挖掘、移动中挖掘、网络抖动、客户端预测)偶发的判定偏差会被
+      # 直接放行并继续维护挖掘状态机, 因此不会出现"方块回弹"; 只有像 TrueSight 那样
+      # 每秒狂刷上百个包的才会达到阈值被拦截。
+      min-invalid-per-window: 3
+      invalid-window-ms: 1000
+      # 每次拦截增加的违规值(0 = 只拦截不加 VL); 受 violation-cooldown 节流
+      vl-per-cancel: 1.0
+      # 是否输出每次拦截的调试日志(需要 debug: true)
+      debug-log: false
+
+    # 大规模挖掘检测配置（如果你不是生电服务器 不存在玩家使用世吞等大规模挖掘区块的情况出现 请补药开启此功能 如果为Algo模式则不需要开启此模式）
+    mass-excavation:
+      # 是否启用大规模挖掘检测
+      enabled: false
+      # 检测时间窗口（秒）
+      detection-time-window: 60
+      # 大规模挖掘方块数量阈值
+      block-count-threshold: 80
+      # 需要检测的方块类型列表 (如果为空，则检测所有方块)
+      # 例如: STONE, DIRT, COBBLESTONE
+      target-blocks:
+        - STONE
+        - DIRT
+        - COBBLESTONE
+        - DEEPSLATE
+      # 挖掘方块多样性阈值 (检测到不同方块种类数达到此值才算可疑)
+      diversity-threshold: 5
+      # 是否检测建筑模式 (规则排列的挖掘痕迹)
+      detect-building-patterns: true
+      # 挖掘区域立方体比例 (宽高比合理性, 0.0-1.0)
+      cuboid-ratio: 0.5
+      # 挖掘速度波动阈值 (速度方差超此值视为可疑)
+      speed-variance-threshold: 0.5
+      # 垂直挖掘最小Y范围
+      vertical-excavation:
+        min-y-range: 4
+        y-xz-ratio: 0.5
+        xz-density: 0.5
+      # 地形改造特征检测
+      terrain-modification:
+        min-y-layers: 3
+        layer-similarity: 0.6
+        xz-stability: 0.6
+      # 挖掘区域最小体积阈值 (例如 1000)
+      min-volume-threshold: 500
+      # 最小挖掘密度阈值 (0.0 - 1.0)。值越高，要求挖掘区域越"实心"，有助于排除矿道。
+      min-density-threshold: 0.7
+      # 最小水平面积阈值。要求挖掘区域在水平方向(X/Z)上达到一定面积，有助于排除垂直矿井。
+      min-horizontal-area-threshold: 100
+      # 临时bypass权限持续时间（秒）
+      bypass-duration: 180
+      # 确认请求冷却时间（秒）
+      confirmation-cooldown: 60
+      # 消息前缀配置
+      message-prefix: "&6[NekoAntiXray] &f"
+      # 确认消息配置
+      confirmation-message: "检测到你可能在进行大规模挖掘，是这样吗？"
+      # 确认按钮文本
+      confirm-button: "&a[是]"
+      # 否认按钮文本
+      deny-button: "&c[否]"
+      # 否认后的冷却时间（秒），在此期间不会再次收到确认请求
+      denial-cooldown-duration: 300
+      # 是否向玩家发送通知
+      notification:
+        enabled: true
+        message: "§a经系统计算已确认您正在进行大规模挖掘，已降低反作弊对您行为的检测力度，但您仍在NAX监控之下。"
+
+  # Freecam 视角检测 (检测玩家视角异常越过方块)
+  antifreecam:
+    # 警告消息
+    warning-message: "&c警告：检测到可疑的Freecam行为。请停止使用，否则可能会被处罚。"
+    # 是否启用踢出
+    kick-enabled: false
+    # 最大警告次数
+    max-warnings: 3
+    # 达到最大警告次数后是否踢出
+    kick-after-max-warnings: true
+    # 踢出消息
+    kick-message: "&c您因为可能使用Freecam而被踢出服务器。"
+    # 视角 Yaw 变化阈值 (度)
+    yaw-threshold: 45.0
+    # 视角 Pitch 变化阈值 (度)
+    pitch-threshold: 30.0
+
+  antiBrightness: # 当玩家周围光源亮度低于阈值时，禁止破坏矿物方块
+    enable: false # 是否启用此功能
+    lightThreshold: 2 # 光照阈值 (0-15)，低于此值则禁止破坏
+    # 受保护的矿物列表。如果为空，且 useBlacklistedOresAsFallback 为 true, 则使用 blacklist.ores。
+    # 示例: ["DIAMOND_ORE", "GOLD_ORE", "ANCIENT_DEBRIS"]
+    targetOres:
+      - DIAMOND_ORE
+      - GOLD_ORE
+      - IRON_ORE
+      - LAPIS_ORE
+      - REDSTONE_ORE
+      - EMERALD_ORE
+      - COAL_ORE
+      - NETHER_QUARTZ_ORE
+      - ANCIENT_DEBRIS
+      - COPPER_ORE
+      - DEEPSLATE_DIAMOND_ORE
+      - DEEPSLATE_GOLD_ORE
+      - DEEPSLATE_IRON_ORE
+      - DEEPSLATE_LAPIS_ORE
+      - DEEPSLATE_REDSTONE_ORE
+      - DEEPSLATE_EMERALD_ORE
+      - DEEPSLATE_COAL_ORE
+      - DEEPSLATE_COPPER_ORE
+    # 如果 targetOres 为空，是否使用 blacklist.ores 作为备选列表
+    useBlacklistedOresAsFallback: true
+    # 在哪些世界启用此检查。如果列表为空，则在所有未被 blacklist.worlds 排除的世界中启用。
+    # 如果列表不为空，则仅在这些指定的世界中启用 (忽略 blacklist.worlds 对于此检查的设置)。
+    # 示例: ["world", "world_nether"]
+    enabledWorlds: []
+    # 当阻止破坏时发送给玩家的消息
+    message: "&c[NekoAntiXray] Light level is too low to break this ore!"
+
+# 黑名单配置 - 默认模式下不进行X-Ray检测的矿石和世界 如果为Algo模式则此配置无效
+blacklist:   # 黑名单配置
+  ores:      # 黑名单矿石列表 
+    - COAL_ORE
+    - IRON_ORE
+    - BUDDING_AMETHYST
+    - AMETHYST_CLUSTER
+    - COPPER_ORE
+    - DEEPSLATE_COPPER_ORE
+  worlds:    # 黑名单世界列表
+    - world_123test
+#    - world_nether
+#    - world_the_end
+
+# 深度学习检测模块 (实验性) - 需要一个预训练的 model.onnx 文件在插件目录
+# 警告：此功能为高级功能，不正确的配置可能会导致性能问题或检测无效。
+deeplearn:
+  # 是否启用深度学习AI检测模块 (独立于其他检测系统)
+  # 启用后，AI将分析玩家的挖矿行为模式来检测X-Ray作弊
+  # 需要将训练好的 model.onnx 和 feature_stats.json 文件放在插件目录
+  enable: false
+  
+  # 是否启用调试模式。启用后，控制台会输出详细的AI检测过程信息。
+  # 警告：仅在排查问题时开启，因为会产生大量日志！
+  debug: false
+  
+  # AI检测违规处罚配置(使用的处罚阈值直接来自AlgoMode的相关设置)
+  violations:
+    # 是否启用AI检测的自动处罚 (如果禁用，AI只会记录日志但不执行处罚)
+    enable-punishment: true
+    # AI检测触发的违规值增加倍数 (基于AI输出的概率计算)
+    vl-multiplier: 10.0
+    # AI检测的最小违规值增加 (即使概率很低也会增加的基础值)
+    min-vl-increase: 1
+    # AI检测的最大违规值增加 (防止单次检测增加过多违规值)  
+    max-vl-increase: 15
+    
+  # 用于模型推理的连续挖矿事件数量。必须与模型训练时使用的值一致。
+  sequence_length: 50
+  # 判定为作弊的概率阈值 (0.0 - 1.0)。值越高越严格。
+  prediction_threshold: 0.5
+  # 触发一次AI检测后的冷却时间（毫秒），防止频繁检测。
+  cooldown_ms: 5000
+  # 用于计算"近期挖掘矿物数量"特征的时间窗口（毫秒）。
+  mining_time_window_ms: 600000
+  # 矿脉挖掘检测配置 - 用于跳过对连续挖掘同一矿脉的推理，以优化性能
+  vein_detection:
+    # 判断为同一矿脉的最大方块间距。
+    max_distance: 2.0
+    # 判断为同一矿脉的最大时间间隔（毫秒）。
+    max_time_ms: 3000
+    # 最大连续跳过AI检测次数 - 防止长时间挖同一矿脉而完全跳过AI分析
+    max_consecutive_skips: 15
+    # 矿脉判断的最大垂直距离
+    max_vertical_distance: 3.0
+  # AI检测所关注的高价值矿物列表。
+  valuable_materials:
+    - "DIAMOND_ORE"
+    - "DEEPSLATE_DIAMOND_ORE"
+    - "EMERALD_ORE"
+    - "DEEPSLATE_EMERALD_ORE"
+    - "GOLD_ORE"
+    - "DEEPSLATE_GOLD_ORE"
+    - "NETHER_GOLD_ORE"
+    - "IRON_ORE"
+    - "DEEPSLATE_IRON_ORE"
+    - "LAPIS_ORE"
+    - "DEEPSLATE_LAPIS_ORE"
+    - "COPPER_ORE"
+    - "DEEPSLATE_COPPER_ORE"
+    - "REDSTONE_ORE"
+    - "DEEPSLATE_REDSTONE_ORE"
+    - "COAL_ORE"
+    - "DEEPSLATE_COAL_ORE"
+    - "ANCIENT_DEBRIS"
+    - "NETHER_QUARTZ_ORE"
+    - "SPAWNER"
+
+
+# 世界范围的反作弊设置
+world-settings:
+  # 默认配置，适用于所有未单独配置的世界
+  default:
+    # 在此世界配置下启用增强型反矿透。
+    # 设为 true 后，所有世界都会默认启用此功能。
+    enabled: true
+    anti-xray:
+      # 需要进行反矿透处理的最高 Y 坐标（向下取整到 16 的倍数）。
+      # Paper 默认通常为 64；在 1.18+ / 26.x 世界高度下，建议设为 320，
+      # 否则 Y>=64 的煤、铜、铁、绿宝石等矿不会被 heavy mode 隐藏。
+      max-block-height: 320
+      # 是否在第三人称视角下也进行射线追踪
+      ray-trace-third-person: true
+      # 射线追踪的最大距离
+      ray-trace-distance: 80.0
+      # 当方块被破坏后，是否重新检查并隐藏周围可能暴露的矿石
+      rehide-blocks: true
+      # 重新隐藏检查的距离
+      rehide-distance: 80.0
+      # 每个区块在一次数据包中进行射线追踪的最大方块数
+      max-ray-trace-block-count-per-chunk: 100
+      # 需要进行射线追踪（即隐藏）的方块列表。
+      # 如果为空，将使用Paper自带的 hidden-blocks 列表。
+      ray-trace-blocks: []
+    # 射线追踪使用的线程数配置
+    # 模式: "auto" 或 具体数字
+    # - auto: 自动根据CPU核心数计算最优线程数 (推荐)
+    # - 数字: 手动指定线程数 (例如: 4, 8, 12)
+    # 推荐公式: CPU核心数 × 1.5 (例如8核CPU推荐12线程)
+    ray-trace-threads: "auto"
+
+    # 是否启用优先级队列（优先处理玩家视野中心的区块）
+    # true: 启用优先级队列，玩家感知延迟更低
+    # false: 使用普通队列，先到先服务
+    enable-priority-queue: true
+
+    # 线程池队列容量
+    # 建议值: 256-1024
+    # 过小: 高负载时任务被拒绝
+    # 过大: 占用更多内存
+    queue-capacity: 512
+
+
+    # 区块数据包异步混淆队列容量（所有世界共享）
+    # 玩家高速跑图时，待处理的区块混淆任务会暂存在该有界队列中。
+    # 队列满时会回退到区块所属的 Tick/区域线程执行，以保证不会发送未混淆区块。
+    # 建议值: 128-512；配置低于 64 时会自动按 64 使用。
+    chunk-obfuscation-queue-capacity: 256
+    # 区块混淆线程池的最大线程数上限。实际线程数 = clamp(1, CPU核心数/2, 此值)
+    chunk-obfuscation-max-threads: 8
+  # 你可以为特定世界覆盖默认配置。
+  # 例如，如果你想在 'world_the_end' 世界中禁用它：
+  # world_the_end:
+  #   enabled: false
+
+# ==================== 统一动作/通知系统 ====================
+# 所有检测模式(XRay / 行为分析 / 大规模挖掘)的 封禁(ban) / 警告(warn) / 通知(notify)
+# 与消息文案统一在此配置, 各模式通过 enabled 开关独立控制。
+#
+# 通用变量:
+#   %player% %check% %vl% %details%   (通知/警告)
+#   %player% %reason% %duration%      (封禁相关)
+#
+# 投递目标(每个动作可独立选择):
+#   notify-admins  - 通知持有 nekoantixray.notify 权限的在线管理员
+#   notify-player  - 同时通知被检测玩家本人
+#   broadcast      - 全服广播
+#   console        - 输出到控制台
+notification-system:
+  enabled: true
+  # 同玩家同类型通知的最小间隔(毫秒), 防止刷屏
+  throttle-ms: 5000
+
+  # OP 离线报告: 持有 nekoantixray.notify / nekoantixray.alerts / nekoantixray.admin
+  # 权限的玩家上线时, 自动显示其离线期间的 检测/封禁 摘要(谁被检测/检测了什么/谁被ban)。
+  # 事件持久化在 logs/offline-report-events.log, 每人最后在线时间在 logs/offline-report-lastseen.yml。
+  offline-report:
+    enabled: true
+    max-entries: 500  # 事件日志保留的最大条数(超出后丢弃最旧)
+
+  # -------------------- XRay 模式 --------------------
+  xray:
+    notify:
+      enabled: true
+      threshold: 1.0          # 达到该 VL 触发通知
+      notify-admins: true
+      notify-player: false
+      broadcast: false
+      console: true
+      message: "&7[NAX] &f%player% &7检测到 &f%check% &7(VL: &e%vl%&7) &8%details%"
+    warn:
+      enabled: true
+      threshold: 5.0          # 达到该 VL 升级为警告
+      notify-admins: true
+      notify-player: false
+      broadcast: false
+      console: true
+      message: "&e[NAX] &f%player% &7触发 &e%check% &7(VL: &e%vl%&7) &8%details%"
+    alert:
+      enabled: true
+      threshold: 10.0         # 达到该 VL 升级为严重警告
+      notify-admins: true
+      notify-player: false
+      broadcast: false
+      console: true
+      message: "&c[NAX] &f%player% &7疑似使用 &c%check% &7(VL: &e%vl%&7) &8%details%"
+    ban:
+      enabled: true           # 原 check.xray.vl.ban.enable
+      threshold: 10.0         # 原 check.xray.vl.ban.threshold
+      # 封禁执行方式(command):
+      #   ""(留空, 默认) - 使用内置封禁: 按 ban-messages.ban-duration 写入封禁列表,
+      #                    以 ban-messages.custom-ban-message 踢出, 到期自动解除;
+      #   非空            - 直接由控制台执行该指令(交给第三方封禁插件), 不再写入
+      #                    封禁列表、不再由插件踢出。占位符位置由你按插件的语法填写,
+      #                    例如 LiteBans: "tempban %player% 7d %reason%"
+      #                             Essentials: "tempban %player% 7d %reason%"
+      #                             原版(永久): "ban %player% %reason%" ← 请自行斟酌
+      #   可用占位符(按下述名字替换, 位置随你调整): %player% %reason% %duration%
+      #               (ban-messages.ban-duration 的天数, -1=永久时显示"永久") %vl% %mode%
+      #   ⚠ 占位符数量必须与目标指令声明的参数数量一致:
+      #     代理服常用 CommandBridge 在子服注册脚本指令(如 banxray), 若脚本只声明了
+      #     一个 player 参数, 这里就不要写 %duration%, 否则对方执行器会抛
+      #     "Unhandled exception executing ... PluginVanillaCommandWrapper" 且玩家不会被封禁。
+      #     出错时插件会打印详细排查日志并通知在线管理员。
+      command: ""
+      # 外部封禁指令执行失败(抛异常/未注册)时, 是否回退到内置封禁兜底:
+      #   false(默认) - 只告警, 不写封禁列表(与"配置了指令就不再内置封禁"的语义一致)
+      #   true        - 指令失败时改用内置封禁, 避免作弊者漏网
+      fallback-to-builtin-on-failure: false
+      broadcast: true         # 原 enable-ban-announcement
+      notify-admins: false    # 仅通知管理员(不广播时用)
+      console: true           # 输出到控制台
+      message: "&c玩家 %player% 因使用作弊被封禁！"        # 原 ban-announcement.message
+      detail: "&7原因: &f%reason%"                      # 原 ban-announcement.detail
+
+  # -------------------- 挖矿行为分析(Algo)模式 --------------------
+  algo:
+    notify:
+      enabled: true
+      threshold: 1.0
+      notify-admins: true
+      notify-player: false
+      broadcast: false
+      console: true
+      message: "&7[NAX] &f%player% &7检测到 &f%check% &7(VL: &e%vl%&7) &8%details%"
+    warn:
+      enabled: true
+      threshold: 5.0
+      notify-admins: true
+      notify-player: false
+      broadcast: false
+      console: true
+      message: "&e[NAX] &f%player% &7触发 &e%check% &7(VL: &e%vl%&7) &8%details%"
+    alert:
+      enabled: true
+      threshold: 10.0
+      notify-admins: true
+      notify-player: false
+      broadcast: false
+      console: true
+      message: "&c[NAX] &f%player% &7疑似使用 &c%check% &7(VL: &e%vl%&7) &8%details%"
+    ban:
+      enabled: false
+      threshold: 20.0
+      command: "ban %player% %duration% 行为分析确认作弊"
+      # 外部封禁指令失败时是否回退内置封禁(详见 notification-system.xray.ban 的说明)
+      fallback-to-builtin-on-failure: false
+      broadcast: true
+      notify-admins: false
+      console: true
+      message: "&c玩家 %player% 因使用作弊被封禁！"
+      detail: "&7原因: &f%reason%"
+    threshold-commands:
+      10: 'say %player% 触发挖矿行为检测 [VL: 10]'
+      20: 'say %player% 触发挖矿行为检测 [VL: 20]'
+      30:
+        - 'kick %player% 检测到异常挖矿行为'
+        - 'say %player% 因异常挖矿被踢出'
+
+  # -------------------- 大规模挖掘模式 --------------------
+  mass-excavation:
+    notify:
+      enabled: true
+      threshold: 0.0          # 确认大规模挖掘即触发(无 VL 分级)
+      notify-admins: true
+      notify-player: true     # 通知玩家本人已进入监控
+      broadcast: false
+      console: true
+      message: "&a经系统计算已确认您正在进行大规模挖掘，已降低反作弊对您行为的检测力度，但您仍在NAX监控之下。"
+    ban:
+      enabled: false
+      threshold: 0.0
+      command: ""
+      # 外部封禁指令失败时是否回退内置封禁(详见 notification-system.xray.ban 的说明)
+      fallback-to-builtin-on-failure: false
+      broadcast: true
+      message: "&c玩家 %player% 因大规模挖掘被封禁！"
+      detail: "&7原因: &f%reason%"
+
+  # -------------------- 封禁相关消息(全局) --------------------
+  ban-messages:
+    ban-reason: "使用作弊客户端 (VL: %vl%)"        # 原 ban-reason
+    ban-duration: 30                               # 原 ban-duration (天, -1=永久)
+    custom-ban-message: |-                         # 原 custom-ban-message (玩家被踢出时显示)
+      &c你已被此服务器封禁！
+
+      &7原因: &f%s
+      &7封禁时长: &f%s
+      &7如果你认为这是一个错误，请联系服务器管理员。
+      &d[NekoAntiXray] &6高效且轻量反Xray插件 By SakuyaAyane
+    show-location-in-console: false                # 原 show-location-in-console
+
+# 封禁统计记录配置
+ban-statistics:
+  # 封禁统计文件路径
+  file-path: "ban-statistics.yml"
+  # 是否启用封禁统计记录
+  enabled: true
+  # 是否记录每次封禁的详细信息
+  record-details: true
+  # 统计重置周期（天），-1表示永不重置
+  reset-period: -1
+
+# 公告系统配置
+announcement-system:
+  # 是否启用定期公告
+  enabled: false
+  # 公告间隔时间（秒）
+  interval: 300
+  # 公告消息（支持MiniMessage格式）
+  message: "<red>⚠</red> <yellow>服务器反矿透系统</yellow> <gray>|</gray> <white>本服务器已封禁</white> <gold>%total_bans%</gold> <white>名作弊玩家！</white> <red>请勿使用任何作弊软件！</red>"
+  # 是否启用渐变色效果
+  gradient-enabled: true
+  # 渐变色起始颜色
+  gradient-start: "#ff6b6b"
+  # 渐变色结束颜色
+  gradient-end: "#feca57"
+  # 是否显示在聊天栏
+  show-in-chat: true
+  # 是否显示为Action Bar
+  show-as-actionbar: false
+  # 是否显示为Title
+  show-as-title: false
+  # Title显示时长配置（仅当show-as-title为true时有效）
+  title:
+    fade-in: 10
+    stay: 40
+    fade-out: 10
+
+# 假矿石生成冷却时间（秒）
+fake-ore-generation-cooldown: 100
+
+# 调试模式: 输出详细调试日志([Debug]/[XRayDiag]/[RayTraceDiag] 等)。
+# 仅在排查问题时开启, 会产生大量日志!
+debug: false
+
+# 抛投诱饵矿石: 沿玩家准星方向向深处投放诱饵矿石
+# 落点约束: 必须穿透 behind-wall-layers 层连续实心方块才落点,
+# 正常玩家(直线挖掘被豁免)几乎不可能挖到, 仅X-Ray式穿墙直奔会命中
+fake-ore-decoy-throw:
+  enabled: false
+  max-distance: 24      # 抛投最远距离(格)
+  min-distance: 6       # 最近距离(格, 避免贴脸)
+  behind-wall-layers: 2 # 需要穿透的连续实心方块层数(可达性约束)
+
+# 违规值相关设置
+violation-cooldown: 10  # 违规值冷却时间（秒）
+violation-decrease-interval: 300  # 违规值降低间隔（秒）
+violation-decrease-amount: 1.0  # 每次降低的违规值
+
+vertical-distribution:
+  enabled: true
+  range: 5
+  min-difference: 2
+  debug: false
+
+replay:
+  enabled: true  # 默认开启replay功能
+  record-duration: 300  # 默认录像时间为300秒(5分钟)
+
+# FakeSeed 配置
+fake-seed:  #简单的种子保护功能 每次输入/seed的返回种子均不一样
+  enable-fake-seed: true 
+  show-real-seed-to-op: false
+  messages:
+    seed-message: "&aSeed: [&f%seed%&a]"
+    no-permission: "&cYou don't have permission to view the seed."
+
+
+# 封禁清除矿物配置
+ban-inventory-clean:
+  enabled: false  # 是否在封禁时清除玩家背包中的矿物
+
+
+antiSeedCracker: #防止种子破解MOD通过获取登录包等数据包以及地牢结构进行种子计算 一般情况下你不需要更改此区域的配置!!! 并且最好保证此功能为开启状态!
+  enable: true  # 总开关，启用或禁用整个 AntiSeedCracker 功能
+  modifyHashedSeed:
+    enable: true # 启用或禁用哈希种子修改
+  modifyEndStructures:
+    enable: true # 启用或禁用末地结构修改
+    worlds: # 指定在哪些世界应用末地结构修改 (例如 ["world_the_end"])
+      - "world_the_end"
+    endSpikes:
+      enable: true # 启用或禁用末地尖刺修改
+      mode: "swap"  # 修改模式: "swap" (交换) 或 "move" (移动)
+    endCities:
+      enable: true # 启用或禁用末地城市修改 (将品红色玻璃替换为玻璃板)
+  biomePacketObfuscation:
+    # 反制 SeedcrackerX 的模糊（biome）搜索：把发给客户端的 chunk biome 数据在采样格上改掉，
+    # 使 pokeBiomes 的合取校验否决真实种子（只要 1 个采样点不匹配即否决）。仅改发包，不动服务端真实 biome。
+    enabled: true
+    # 混淆维度范围。模糊搜索是 OverworldBiomeSource（主世界）；默认只在主世界混淆，降低视觉/回归面。
+    overworldOnly: true
+    # 粒度：
+    #   surgical  = 只污染 SeedcrackerX 采样格 (local 2,2)，视觉影响最小。
+    #   moderate  = 采样格 + 每 section 另外确定性多选 cellsPerSection-1 个格（默认，更抗"改过采样点的魔改版"）。
+    #   aggressive= 污染每个 section 全部水平格（最强，但远处草色/水色/雾色会明显混乱）。
+    mode: "moderate"
+    # moderate 模式下每个 section 污染的水平格数（含采样格），范围 1-16。
+    cellsPerSection: 3
+    # 离玩家多少 chunk 之外才修改。0 表示玩家附近 chunk 也混淆，防止近距离采样泄露真实 biome。
+    minDistanceChunks: 0
+    # 每个玩家使用独立修改值，防多人联合采样。
+    perPlayerSalt: true
+    # 生产服建议填一个固定随机 long；为 0 时插件每次启动生成随机数。
+    salt: 0
+
+  structureSeedProtection:
+    # 最小影响结构种子保护：
+    # 新生成区块主要依赖 secure-seed.structure-placement-xor-enabled 的 worldgen XOR 偏移真实结构落点。
+    # 已生成区块默认只保留沉船/藏宝箱等局部证据位隔离，并由 seedcrackerXFirewall 维持 shadow-state 一致性。
+    # aggressive 会重新启用神庙/雪屋/前哨站等广域签名毒化，默认关闭以优先保护正常玩家观感。
+    enabled: true
+    strategy: "minimal" # minimal: 最小证据隔离；aggressive: 兼容旧版广域结构签名毒化。
+    structures:
+      desertPyramid: false
+      jungleTemple: false
+      swampHut: false
+      igloo: false
+      pillagerOutpost: false
+      # 沉船毒化会误判玩家建筑(箱子+楼梯+活板门)并把活板门变水, 默认关闭;
+      # 如需开启请确认玩家不会在陆地上建造类似结构
+      shipwreck: false
+
+  decoratorPacketObfuscation:
+    enabled: true # 只修改发给客户端的 chunk packet，不改变服务端真实方块。
+    mode: "balanced" # balanced: 尽量降低正常观感影响；strict: 优先阻断 decorator finder。
+    dungeons:
+      enabled: true
+      stripSpawnerBlockEntity: true # 移除 spawner block entity（去掉笼内转圈生物，避免泄露）。
+      # 默认开启：在数据包里把 spawner 下方 9x9 地板的部分圆石/苔石替换为石头，
+      # 使可见圆石/苔石数 < 20，SeedcrackerX DungeonFinder 的地板计数校验失败。
+      # 这是不依赖客户端是否惰性重建刷怪笼实体的可靠击破点。代价：地牢地板部分显示石头。
+      breakFloorCount: true
+      floorTargetCount: 19 # 把可见地板圆石/苔石降到该数量以下（< 20）。
+      replaceSpawnerBlockInStrictMode: true # strict 下可将 spawner 方块从 packet 中隐藏。
+      perturbFloorInStrictMode: true # strict 下扰动地牢圆石/苔石地板计数。
+    structures:
+      # 藏宝箱：只把箱子正下方方块（玩家看不到）改成 DIRT，使 finder 的"下方∈CHEST_HOLDERS"校验失败。
+      # 箱子本身不动，正常可见、右键可正常打开真实箱子，几乎零可见影响。默认开启。
+      buriedTreasure: true
+      # 沉船（strict 纵深）：扰动箱子周围楼梯/活板门签名。P0 海洋池排除已覆盖，默认关闭。
+      shipwreck: false
+      # 海底神殿（strict 纵深）：扰动海晶石模板关键点。P0 海洋池排除已覆盖，默认关闭。
+      monument: false
+    endGateway:
+      enabled: false # strict 下隐藏 END_GATEWAY 并移除对应 block entity；默认关闭以免影响末地交通观感。
+    emeraldOre:
+      enabled: false # strict 下将绿宝石矿显示为石头/深板岩；默认关闭以免影响正常挖矿。
+    desertWell:
+      enabled: true # balanced 下只在识别到沙漠井模式时扰动少量关键 packet 点。
+    warpedFungus:
+      enabled: false # strict 下扰动诡异菌特征；默认关闭以免明显破坏下界大型菌视觉。
+
+  seedcrackerXFirewall:
+    enabled: true # 针对 SeedcrackerX 的客户端 shadow state 防火墙，保持后续方块更新和 chunk 初始伪装一致。
+    shadowState:
+      ttlSeconds: 900 # 单个伪装坐标在客户端侧保持的时间；过短会允许延迟更新泄露真实状态。
+      maxPositionsPerPlayer: 200000 # 每个玩家最多缓存多少个伪装坐标，超过后丢弃最旧记录。
+    rewriteBlockUpdates: true # 重写后续单方块/多方块更新，防止客户端世界状态恢复真实 decorator 方块。
+    rewriteBlockEntityUpdates: true # 阻断已隐藏的刷怪笼/末地折跃门等 block entity 后续更新。
+    interceptPlayerActions: true # 记录 SeedcrackerX 风格探针；达到可疑度门槛后才阻断真实状态回流。
+    interceptStartStopDigging: true # 可疑玩家对已伪装方块 START/FINISH 时也会被隔离，普通玩家默认不受影响。
+
+  fabricModDetection:
+    enabled: true # 检测 Fabric/SeedCrackerX 等客户端侧种子破解模组暴露的插件通道/brand。
+    debug: false
+    kickOnFabricBrand: false # true 会直接拒绝所有 brand=Fabric 的客户端；默认仅拦截命中下方关键词的客户端。
+    kickMessage: "&c检测到禁止使用的种子破解客户端/模组，请移除后再进入服务器。"
+    blockedKeywords:
+      - "seedcracker"
+      - "seedcrackerx"
+      - "seedcraker"
+      - "seed-cracker"
+      - "seed_cracker"
+    blockedChannelNames:
+      - "seedcracker"
+      - "seedcrackerx"
+      - "seedcrackerx:main"
+      - "seedcrackerx:seed"
+      - "seedcrackerx:database"
+      - "seedcrackerx:api"
+      - "seedcracker:main"
+      - "seedcrackerx:channel"
+
+# 安全种子性能优化配置 (仅在antiSeedCracker启用时生效)
+# 重要提示：这些选项仅影响性能，不会降低任何安全保护级别！
+  netherBedrockProtection:
+    enabled: true # Enable Nether bedrock seed obfuscation
+    blockRoofAccess: false # Optionally block access above nether roof
+    roofAccessMaxY: 127 # Max allowed Y when roof access blocking is enabled
+
+secure-seed:
+  # 是否启用生物群系坐标混淆。
+  # 用于防止通过生物群系分布反推世界种子。
+  # 该功能可以和上面的生物群系数据包修改一块用。
+  biome-source-xor-enabled: true
+
+  # 是否启用结构落点种子真偏移（反制 SeedcrackerX 的结构种子 LIFTING）。
+  # 原理：在 WorldgenRandom.setLargeFeatureWithSalt 入口对种子 XOR world-seed-xor，
+  # 让沙漠神殿/丛林神庙/沼泽小屋/圈石屋/前哨站/沉船等结构真实生成在偏离真种子的位置，
+  # SeedcrackerX 反推出的是错误的结构种子/世界种子。
+  # 注意：这会改变【新生成区块】的结构分布（已生成的老区块不受影响）。
+  # 偏移量恒定取决于下方 world-seed-xor，保证同坐标结构位置不漂移。
+  structure-placement-xor-enabled: true
+
+  # 结构落点 XOR 值。生产服建议首次部署时生成一个固定随机 long，之后不要频繁修改。
+  # 默认值是固定非零常量，避免未生成新区块的结构位置在重启后漂移。
+  world-seed-xor: 7640891576956012809
+
+  # 生物群系坐标混淆值。
+  # 建议设置为固定随机 long，开服后不要频繁修改。
+  # 修改后，未生成新区块的 biome 分布会改变。
+  # 默认0为随机数，若没有出现区块撕裂等情况可保持为0。
+  biome-coordinate-xor: 0
+  
+  world-generation-hook-enabled: false
+
+  # 是否启用 BLAKE2 哈希增强（仅影响安全世界生成钩子内部实现）
+  blake2-hashing-enabled: true
+  bedrock-seed-xor: # Optional fixed XOR for bedrock random name; empty means random each startup
+  # 是否启用异步区块保护处理
+  # true: 区块保护在后台线程处理，减少主线程阻塞 (推荐，Folia兼容)
+  # false: 区块保护在主线程同步处理
+  # 注意：无论哪种模式，保护强度完全相同
+  async-chunk-protection: true
+  
+  # 哈希结果缓存大小 (用于SecureCryptoRandom)
+  # 缓存的是确定性计算结果，不影响安全性
+  # 较大的值可以减少CPU计算，但会占用更多内存
+  # 推荐范围: 2048-8192
+  hash-cache-size: 4096
+  
+  # 结构保护位置缓存大小
+  # 缓存已计算的结构偏移位置，减少重复计算
+  # 推荐范围: 4096-16384
+  position-cache-size: 8192
+  
+  # 随机数实例池大小
+  # 复用SecureCryptoRandom实例以减少GC压力
+  # 推荐范围: 32-128
+  random-pool-size: 64
+  
+  # 区块处理队列最大长度
+  # 防止异步队列无限增长导致内存问题
+  # 推荐范围: 512-2048
+  max-queue-size: 1024
+  
+  # 每个tick处理的区块数量 (仅在async-chunk-protection为true时生效)
+  # 较大的值可以更快处理队列，但可能影响其他异步任务
+  # 推荐范围: 8-32
+  batch-size: 16
+
+# 矿石追踪系统
+ore-stats:
+  enabled: true
+  # 矿石追踪提示格式
+  tracking-notification: "§6[OreTracker] §e%player% §7mined §b%ore% §7at §aX:%x% Y:%y% Z:%z% §7(%world%)"
+  # 是否追踪全部矿石
+  track-all-ores: true
+
+# FAWE/WorldEdit 兼容性设置
+# 检测到 FAWE 或 WorldEdit 插件时自动启用，无需手动开关
+fawe-compatibility:
+  # 检测到编辑后延迟多少 ticks 开始刷新 (10 ticks = 500ms)
+  refresh-delay-ticks: 10
+  # 同一区块刷新冷却时间（毫秒）
+  refresh-cooldown-ms: 2000
+  # 每次刷新周期最多处理的区块数
+  max-chunks-per-cycle: 10
+
+# 提示：
+# 1. 请根据您的服务器情况调整这些值，特别是距离限制和违规值阈值，这将直接影响到检测效果。
+# 2  在修改配置后，请重启服务器或重新加载插件以使更改生效。
+# 3. https://www.nekoantixray.link/ 了解更多信息。
+
