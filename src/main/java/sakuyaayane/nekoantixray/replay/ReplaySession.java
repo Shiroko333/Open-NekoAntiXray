@@ -1,23 +1,23 @@
 package sakuyaayane.nekoantixray.replay;
 
 import java.util.Collections;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.Generated;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Player;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.Player;
-import sakuyaayane.nekoantixray.NekoAntiXray;
-import sakuyaayane.nekoantixray.OreParticleRenderer;
 import sakuyaayane.nekoantixray.lib.folialib.FoliaLib;
 import sakuyaayane.nekoantixray.lib.folialib.wrapper.task.WrappedTask;
+import sakuyaayane.nekoantixray.NekoAntiXray;
+import sakuyaayane.nekoantixray.stats.OreParticleRenderer;
 
 public class ReplaySession {
    private final NekoAntiXray plugin;
